@@ -517,17 +517,16 @@ class PdfMeasureViewer:
             print("No measurements to save.")
             return
 
-        # Get base filename from PDF
         base_name = Path(self.doc.path).stem
+        results_dir = Path("results")
+        results_dir.mkdir(exist_ok=True)
 
-        # Save CSV
-        csv_path = f"{base_name}_measurements.csv"
-        export_measurements_csv(self.measurements, csv_path, self.calibration)
+        csv_path = results_dir / f"{base_name}_measurements.csv"
+        export_measurements_csv(self.measurements, str(csv_path), self.calibration)
         print(f"Saved: {csv_path}")
 
-        # Save JSON
-        json_path = f"{base_name}_measurements.json"
-        export_measurements_json(self.measurements, json_path, self.calibration)
+        json_path = results_dir / f"{base_name}_measurements.json"
+        export_measurements_json(self.measurements, str(json_path), self.calibration)
         print(f"Saved: {json_path}")
 
     def _show_help(self):
