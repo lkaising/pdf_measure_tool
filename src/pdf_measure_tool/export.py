@@ -49,6 +49,29 @@ def export_measurements_csv(
             f.write("\n# === POST RECTANGLE ===\n")
             _write_rectangle_csv(writer, collection.post_rectangle)
 
+        # Write particle displacements
+        if collection.particles:
+            f.write("\n# === PARTICLE TRACKING ===\n")
+            headers = [
+                "id", "label",
+                "pre_x_px", "pre_y_px",
+                "post_x_px", "post_y_px",
+                "pre_x_mm", "pre_y_mm",
+                "post_x_mm", "post_y_mm",
+                "pre_page", "post_page"
+            ]
+            writer.writerow(headers)
+
+            for p in collection.particles:
+                writer.writerow([
+                    p.id, p.label,
+                    f"{p.pre_position_px[0]:.2f}", f"{p.pre_position_px[1]:.2f}",
+                    f"{p.post_position_px[0]:.2f}", f"{p.post_position_px[1]:.2f}",
+                    f"{p.pre_position_mm[0]:.4f}", f"{p.pre_position_mm[1]:.4f}",
+                    f"{p.post_position_mm[0]:.4f}", f"{p.post_position_mm[1]:.4f}",
+                    p.pre_page_index, p.post_page_index,
+                ])
+
         # Write measurements (legacy support)
         if collection.measurements:
             f.write("\n# === MEASUREMENTS ===\n")
@@ -70,31 +93,6 @@ def export_measurements_csv(
                     f"{m.length_mm:.4f}" if m.length_mm else "N/A",
                     f"{m.angle_degrees:.2f}",
                     m.notes
-                ])
-
-        # Write particle displacements
-        if collection.particles:
-            f.write("\n# === PARTICLE DISPLACEMENTS ===\n")
-            headers = [
-                "id", "label",
-                "pre_x_px", "pre_y_px", "post_x_px", "post_y_px",
-                "pre_page", "post_page",
-                "dx_px", "dy_px", "magnitude_px",
-                "dx_mm", "dy_mm", "magnitude_mm"
-            ]
-            writer.writerow(headers)
-
-            for p in collection.particles:
-                writer.writerow([
-                    p.id, p.label,
-                    f"{p.pre_position_px[0]:.2f}", f"{p.pre_position_px[1]:.2f}",
-                    f"{p.post_position_px[0]:.2f}", f"{p.post_position_px[1]:.2f}",
-                    p.pre_page_index, p.post_page_index,
-                    f"{p.displacement_px[0]:.2f}", f"{p.displacement_px[1]:.2f}",
-                    f"{p.displacement_magnitude_px:.2f}",
-                    f"{p.displacement_mm[0]:.4f}" if p.displacement_mm else "N/A",
-                    f"{p.displacement_mm[1]:.4f}" if p.displacement_mm else "N/A",
-                    f"{p.displacement_magnitude_mm:.4f}" if p.displacement_magnitude_mm else "N/A",
                 ])
 
     return str(path)
@@ -166,8 +164,8 @@ def export_measurements_json(
             "pre": collection.pre_rectangle.to_dict() if collection.pre_rectangle else None,
             "post": collection.post_rectangle.to_dict() if collection.post_rectangle else None,
         },
-        "measurements": [m.to_dict() for m in collection.measurements],
         "particles": [p.to_dict() for p in collection.particles],
+        "measurements": [m.to_dict() for m in collection.measurements],
     }
 
     with open(path, "w") as f:
@@ -233,6 +231,21 @@ def load_measurements_json(path: str) -> tuple[MeasurementCollection, Optional[C
             height_mm=rect_data["height_mm"],
         )
 
+    # Load particles
+    for p_data in data.get("particles", []):
+        particle = ParticleDisplacement(
+            id=p_data["id"],
+            label=p_data["label"],
+            pre_position_px=(p_data["pre_x_px"], p_data["pre_y_px"]),
+            post_position_px=(p_data["post_x_px"], p_data["post_y_px"]),
+            pre_position_mm=(p_data["pre_x_mm"], p_data["pre_y_mm"]),
+            post_position_mm=(p_data["post_x_mm"], p_data["post_y_mm"]),
+            pre_page_index=p_data["pre_page"],
+            post_page_index=p_data["post_page"],
+        )
+        collection.particles.append(particle)
+        collection._next_particle_id = max(collection._next_particle_id, particle.id + 1)
+
     # Load measurements
     for m_data in data.get("measurements", []):
         measurement = Measurement(
@@ -248,21 +261,6 @@ def load_measurements_json(path: str) -> tuple[MeasurementCollection, Optional[C
         )
         collection.measurements.append(measurement)
         collection._next_measurement_id = max(collection._next_measurement_id, measurement.id + 1)
-
-    # Load particles
-    for p_data in data.get("particles", []):
-        particle = ParticleDisplacement(
-            id=p_data["id"],
-            label=p_data["label"],
-            pre_position_px=(p_data["pre_x_px"], p_data["pre_y_px"]),
-            post_position_px=(p_data["post_x_px"], p_data["post_y_px"]),
-            pre_page_index=p_data["pre_page"],
-            post_page_index=p_data["post_page"],
-            displacement_px=(p_data["dx_px"], p_data["dy_px"]),
-            displacement_mm=(p_data.get("dx_mm"), p_data.get("dy_mm")) if p_data.get("dx_mm") else None,
-        )
-        collection.particles.append(particle)
-        collection._next_particle_id = max(collection._next_particle_id, particle.id + 1)
 
     # Load calibration
     calibration = None

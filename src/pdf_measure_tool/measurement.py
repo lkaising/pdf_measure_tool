@@ -73,6 +73,41 @@ class Rectangle:
 
 
 @dataclass
+class ParticleDisplacement:
+    """Represents a particle tracked between pre and post images."""
+    id: int
+    label: str
+
+    # Pixel coordinates (as clicked, origin = top-left of PDF)
+    pre_position_px: tuple[float, float]
+    post_position_px: tuple[float, float]
+
+    # MM coordinates (in rectangle coordinate system, bottom-left = 0,0)
+    pre_position_mm: tuple[float, float]
+    post_position_mm: tuple[float, float]
+
+    pre_page_index: int
+    post_page_index: int
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for export."""
+        return {
+            "id": self.id,
+            "label": self.label,
+            "pre_x_px": self.pre_position_px[0],
+            "pre_y_px": self.pre_position_px[1],
+            "post_x_px": self.post_position_px[0],
+            "post_y_px": self.post_position_px[1],
+            "pre_x_mm": self.pre_position_mm[0],
+            "pre_y_mm": self.pre_position_mm[1],
+            "post_x_mm": self.post_position_mm[0],
+            "post_y_mm": self.post_position_mm[1],
+            "pre_page": self.pre_page_index,
+            "post_page": self.post_page_index,
+        }
+
+
+@dataclass
 class Measurement:
     """Represents a distance measurement between two points."""
     id: int
@@ -119,50 +154,6 @@ class Measurement:
             "angle_deg": self.angle_degrees,
             "timestamp": self.timestamp.isoformat(),
             "notes": self.notes,
-        }
-
-
-@dataclass
-class ParticleDisplacement:
-    """Represents a particle tracked between pre and post images."""
-    id: int
-    label: str
-    pre_position_px: tuple[float, float]
-    post_position_px: tuple[float, float]
-    pre_page_index: int
-    post_page_index: int
-    displacement_px: tuple[float, float]
-    displacement_mm: Optional[tuple[float, float]]
-
-    @property
-    def displacement_magnitude_px(self) -> float:
-        """Magnitude of displacement in pixels."""
-        return np.sqrt(self.displacement_px[0]**2 + self.displacement_px[1]**2)
-
-    @property
-    def displacement_magnitude_mm(self) -> Optional[float]:
-        """Magnitude of displacement in mm."""
-        if self.displacement_mm is None:
-            return None
-        return np.sqrt(self.displacement_mm[0]**2 + self.displacement_mm[1]**2)
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for export."""
-        return {
-            "id": self.id,
-            "label": self.label,
-            "pre_x_px": self.pre_position_px[0],
-            "pre_y_px": self.pre_position_px[1],
-            "post_x_px": self.post_position_px[0],
-            "post_y_px": self.post_position_px[1],
-            "pre_page": self.pre_page_index,
-            "post_page": self.post_page_index,
-            "dx_px": self.displacement_px[0],
-            "dy_px": self.displacement_px[1],
-            "displacement_magnitude_px": self.displacement_magnitude_px,
-            "dx_mm": self.displacement_mm[0] if self.displacement_mm else None,
-            "dy_mm": self.displacement_mm[1] if self.displacement_mm else None,
-            "displacement_magnitude_mm": self.displacement_magnitude_mm,
         }
 
 
@@ -285,6 +276,91 @@ class MeasurementCollection:
             return self.post_rectangle
         return None
 
+    def add_particle(
+        self,
+        label: str,
+        pre_position_px: tuple[float, float],
+        post_position_px: tuple[float, float],
+        pre_page_index: int,
+        post_page_index: int,
+        mm_per_pixel: Optional[float] = None
+    ) -> ParticleDisplacement:
+        """
+        Add a particle displacement tracking.
+
+        Args:
+            label: Label for the particle.
+            pre_position_px: Position in pre-test image (pixels).
+            post_position_px: Position in post-test image (pixels).
+            pre_page_index: Page index of pre-test image.
+            post_page_index: Page index of post-test image.
+            mm_per_pixel: Scale factor for conversion.
+
+        Returns:
+            The created ParticleDisplacement object.
+        """
+        # Calculate mm coordinates relative to rectangle coordinate systems
+        pre_position_mm = self._transform_point_to_rectangle_mm(
+            pre_position_px, self.pre_rectangle, mm_per_pixel
+        )
+        post_position_mm = self._transform_point_to_rectangle_mm(
+            post_position_px, self.post_rectangle, mm_per_pixel
+        )
+
+        particle = ParticleDisplacement(
+            id=self._next_particle_id,
+            label=label,
+            pre_position_px=pre_position_px,
+            post_position_px=post_position_px,
+            pre_position_mm=pre_position_mm,
+            post_position_mm=post_position_mm,
+            pre_page_index=pre_page_index,
+            post_page_index=post_page_index,
+        )
+
+        self.particles.append(particle)
+        self._next_particle_id += 1
+
+        return particle
+
+    def _transform_point_to_rectangle_mm(
+        self,
+        point_px: tuple[float, float],
+        rectangle: Optional[Rectangle],
+        mm_per_pixel: Optional[float]
+    ) -> tuple[float, float]:
+        """
+        Transform a point from pixel coordinates to rectangle mm coordinates.
+
+        Args:
+            point_px: Point in pixel space (origin = top-left of PDF)
+            rectangle: Rectangle to use for coordinate system
+            mm_per_pixel: Calibration factor
+
+        Returns:
+            Point in mm space (origin = bottom-left of rectangle)
+        """
+        if rectangle is None or mm_per_pixel is None:
+            return (0.0, 0.0)
+
+        # Get rectangle's bottom-left corner in pixel space
+        rect_bottom_left_px = rectangle.bottom_left_px  # (min_x, max_y)
+
+        # Calculate offset from rectangle's bottom-left corner
+        # X: positive to the right
+        dx_from_left = point_px[0] - rect_bottom_left_px[0]
+
+        # Y: positive upward (inverted from pixel space!)
+        # In pixel space, Y increases downward
+        # In mm space, Y increases upward
+        dy_from_bottom = rect_bottom_left_px[1] - point_px[1]
+
+        # Convert to mm
+        x_mm = dx_from_left * mm_per_pixel
+        y_mm = dy_from_bottom * mm_per_pixel
+
+        return (x_mm, y_mm)
+
     def add_measurement(
         self,
         label: str,
@@ -330,53 +406,6 @@ class MeasurementCollection:
 
         return measurement
 
-    def add_particle(
-        self,
-        label: str,
-        pre_position_px: tuple[float, float],
-        post_position_px: tuple[float, float],
-        pre_page_index: int,
-        post_page_index: int,
-        mm_per_pixel: Optional[float] = None
-    ) -> ParticleDisplacement:
-        """
-        Add a particle displacement tracking.
-
-        Args:
-            label: Label for the particle.
-            pre_position_px: Position in pre-test image (pixels).
-            post_position_px: Position in post-test image (pixels).
-            pre_page_index: Page index of pre-test image.
-            post_page_index: Page index of post-test image.
-            mm_per_pixel: Scale factor for conversion.
-
-        Returns:
-            The created ParticleDisplacement object.
-        """
-        dx = post_position_px[0] - pre_position_px[0]
-        dy = post_position_px[1] - pre_position_px[1]
-        displacement_px = (dx, dy)
-
-        displacement_mm = None
-        if mm_per_pixel:
-            displacement_mm = (dx * mm_per_pixel, dy * mm_per_pixel)
-
-        particle = ParticleDisplacement(
-            id=self._next_particle_id,
-            label=label,
-            pre_position_px=pre_position_px,
-            post_position_px=post_position_px,
-            pre_page_index=pre_page_index,
-            post_page_index=post_page_index,
-            displacement_px=displacement_px,
-            displacement_mm=displacement_mm,
-        )
-
-        self.particles.append(particle)
-        self._next_particle_id += 1
-
-        return particle
-
     def delete_last_measurement(self) -> Optional[Measurement]:
         """Remove and return the last measurement."""
         if self.measurements:
@@ -411,10 +440,14 @@ class MeasurementCollection:
         for m in self.measurements:
             m.length_mm = m.pixel_distance * mm_per_pixel
 
+        # Recalculate particle mm coordinates
         for p in self.particles:
-            dx = p.displacement_px[0] * mm_per_pixel
-            dy = p.displacement_px[1] * mm_per_pixel
-            p.displacement_mm = (dx, dy)
+            p.pre_position_mm = self._transform_point_to_rectangle_mm(
+                p.pre_position_px, self.pre_rectangle, mm_per_pixel
+            )
+            p.post_position_mm = self._transform_point_to_rectangle_mm(
+                p.post_position_px, self.post_rectangle, mm_per_pixel
+            )
 
         # Update rectangles
         if self.pre_rectangle:

@@ -241,6 +241,12 @@ class PdfMeasureViewer:
 
     def _start_particle_tracking(self):
         """Enter particle tracking mode."""
+        # Guardrail: Check if both rectangles exist
+        if self.measurements.pre_rectangle is None or self.measurements.post_rectangle is None:
+            print("\nError: Cannot track particles without both PRE and POST rectangles.")
+            print("Please measure both rectangles first (press 'm' and 'g' to toggle groups).")
+            return
+
         self.mode = Mode.PARTICLE_PRE
         self._click_points.clear()
         self._temp_particle_pre = None
@@ -331,7 +337,7 @@ class PdfMeasureViewer:
         self._temp_artists.append(point)
 
         self.mode = Mode.PARTICLE_POST
-        print(f"[Particle] PRE position recorded at ({x:.1f}, {y:.1f}). Now click POST position (can be on different page).")
+        print(f"[Particle] PRE position recorded at ({x:.1f}, {y:.1f}) px. Now click POST position (can be on different page).")
 
         self._update_status()
         self.fig.canvas.draw_idle()
@@ -357,15 +363,14 @@ class PdfMeasureViewer:
         self._particle_label_counter += 1
 
         # Report
-        dx, dy = particle.displacement_px
-        mag_px = particle.displacement_magnitude_px
+        pre_x_px, pre_y_px = particle.pre_position_px
+        post_x_px, post_y_px = particle.post_position_px
+        pre_x_mm, pre_y_mm = particle.pre_position_mm
+        post_x_mm, post_y_mm = particle.post_position_mm
 
-        if particle.displacement_mm:
-            dx_mm, dy_mm = particle.displacement_mm
-            mag_mm = particle.displacement_magnitude_mm
-            print(f"[{label}] Displacement: ({dx:.1f}, {dy:.1f}) px = ({dx_mm:.3f}, {dy_mm:.3f}) mm, magnitude: {mag_mm:.3f} mm")
-        else:
-            print(f"[{label}] Displacement: ({dx:.1f}, {dy:.1f}) px, magnitude: {mag_px:.1f} px")
+        print(f"\n[{label}] Particle Tracked:")
+        print(f"  PRE:  ({pre_x_px:.1f}, {pre_y_px:.1f}) px → ({pre_x_mm:.3f}, {pre_y_mm:.3f}) mm")
+        print(f"  POST: ({post_x_px:.1f}, {post_y_px:.1f}) px → ({post_x_mm:.3f}, {post_y_mm:.3f}) mm")
 
         # Clear and reset
         self._clear_temp_artists()
@@ -505,6 +510,7 @@ class PdfMeasureViewer:
 ║                                                              ║
 ║  PARTICLE TRACKING                                           ║
 ║    t          Track particle (pre → post position)           ║
+║               (Requires both rectangles to be measured)      ║
 ║                                                              ║
 ║  DATA MANAGEMENT                                             ║
 ║    s          Save measurements to CSV and JSON              ║
