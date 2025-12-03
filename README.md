@@ -8,9 +8,7 @@ Interactive Python tool for measuring distances on PDF pages, designed for biome
 - **Render pages as images** with zoom and pan controls
 - **Click to measure distances** between any two points
 - **Particle tracking mode** to track displacement between pre and post images
-- **Calibration options**:
-  - Automatic calibration from PDF page dimensions
-  - Manual calibration by clicking two points of known distance
+- **Automatic calibration** from PDF page dimensions
 - **Measurement groups** to organize pre/post/fiber/edge measurements
 - **Export to CSV and JSON** for further analysis
 
@@ -47,7 +45,6 @@ python -m pdf_measure_tool path/to/your/file.pdf --dpi 200
 | Key | Action |
 |-----|--------|
 | `m` | Enter **measure mode** (click 2 points to measure distance) |
-| `c` | Enter **calibration mode** (click 2 points, enter known distance) |
 | `t` | **Track particle** (click pre position, then post position) |
 | `g` | Toggle measurement **group** (pre/post/fiber/edge/other) |
 | `s` | **Save** measurements to CSV and JSON |
@@ -62,11 +59,15 @@ python -m pdf_measure_tool path/to/your/file.pdf --dpi 200
 
 ### Mouse Controls
 
-- **Click** in measure/calibrate/track mode to place points
+- **Click** in measure/track mode to place points
 - Use the **matplotlib toolbar** at the bottom for:
   - Pan (hand icon)
   - Zoom to rectangle (magnifier icon)
   - Home (reset view)
+
+## Calibration
+
+The tool **automatically calibrates** using the PDF page dimensions. This assumes your PDF drawings are to scale. If they're not, the pixel measurements will still be accurate, but the millimeter conversions will be based on the page size rather than the actual drawing scale.
 
 ## Workflow Example (Biomechanics Project)
 
@@ -75,19 +76,14 @@ python -m pdf_measure_tool path/to/your/file.pdf --dpi 200
    python -m pdf_measure_tool Biomechanics_Project.pdf
    ```
 
-2. **Calibrate** (if needed):
-   - Press `c` to enter calibration mode
-   - Click two points on a known reference (e.g., scale bar)
-   - Enter the known distance when prompted
-
-3. **Measure sample dimensions**:
+2. **Measure sample dimensions**:
    - Press `g` until group shows "pre"
    - Press `m` and click to measure initial sample width/height
    - Navigate to post-test page with `→`
    - Press `g` until group shows "post"
    - Press `m` and measure final dimensions
 
-4. **Track particle displacements**:
+3. **Track particle displacements**:
    - Go to pre-test page
    - Press `t` to enter tracking mode
    - Click on a particle in the pre-test image
@@ -95,7 +91,7 @@ python -m pdf_measure_tool path/to/your/file.pdf --dpi 200
    - Click on the same particle in the post-test image
    - Displacement is automatically calculated
 
-5. **Save results**:
+4. **Save results**:
    - Press `s` to export measurements
    - Files saved as `YourPDF_measurements.csv` and `.json`
 
@@ -104,7 +100,7 @@ python -m pdf_measure_tool path/to/your/file.pdf --dpi 200
 ### CSV Output
 
 ```csv
-# Calibration: 0.084667 mm/pixel (manual)
+# Calibration: 0.084667 mm/pixel (page)
 # Exported: 2024-01-15T10:30:00
 # === MEASUREMENTS ===
 id,label,group,page,x1_px,y1_px,x2_px,y2_px,dx_px,dy_px,pixel_distance,length_mm,angle_deg,notes
@@ -118,7 +114,7 @@ id,label,pre_x_px,pre_y_px,post_x_px,post_y_px,pre_page,post_page,dx_px,dy_px,ma
 
 ## Limitations
 
-- Assumes PDF drawings are to scale (or requires manual calibration)
+- Calibration assumes PDF drawings are to scale (based on page dimensions)
 - No automatic detection of features (all manual clicking)
 - Requires matplotlib GUI backend (may need configuration on some systems)
 

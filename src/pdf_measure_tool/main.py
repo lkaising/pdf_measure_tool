@@ -22,7 +22,6 @@ Examples:
 
 Controls (in GUI):
     m       - Start measurement (click 2 points)
-    c       - Calibrate (click 2 points, enter known distance)
     t       - Track particle displacement
     g       - Toggle measurement group
     s       - Save measurements to CSV/JSON

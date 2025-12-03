@@ -10,12 +10,11 @@ from typing import Optional, List, Callable
 from pathlib import Path
 
 from .pdf_loader import PdfDocument, PageImage
-from .calibration import Calibration, page_scale_from_pdf, scale_from_known_length
+from .calibration import Calibration, page_scale_from_pdf
 from .measurement import MeasurementCollection, Measurement
 from .export import export_measurements_csv, export_measurements_json
 from .config import (
     MEASUREMENT_LINE_COLOR, MEASUREMENT_POINT_COLOR,
-    CALIBRATION_LINE_COLOR, CALIBRATION_POINT_COLOR,
     POINT_MARKER_SIZE, LINE_WIDTH, LABEL_FONT_SIZE,
     SHORTCUTS, DEFAULT_DPI
 )
@@ -25,7 +24,6 @@ class Mode(Enum):
     """Interaction modes for the viewer."""
     VIEW = auto()
     MEASURE = auto()
-    CALIBRATE = auto()
     PARTICLE_PRE = auto()
     PARTICLE_POST = auto()
 
@@ -138,7 +136,6 @@ class PdfMeasureViewer:
         mode_text = {
             Mode.VIEW: "VIEW MODE - Press 'h' for help",
             Mode.MEASURE: f"MEASURE MODE - Click 2 points (group: {self.current_group})",
-            Mode.CALIBRATE: "CALIBRATE MODE - Click 2 points of known distance",
             Mode.PARTICLE_PRE: "PARTICLE TRACK - Click PRE-test position",
             Mode.PARTICLE_POST: "PARTICLE TRACK - Click POST-test position",
         }
@@ -171,9 +168,6 @@ class PdfMeasureViewer:
 
         elif event.key == SHORTCUTS["measure"]:
             self._start_measure_mode()
-
-        elif event.key == SHORTCUTS["calibrate"]:
-            self._start_calibrate_mode()
 
         elif event.key == SHORTCUTS["save"]:
             self._save_measurements()
@@ -225,9 +219,6 @@ class PdfMeasureViewer:
         if self.mode == Mode.MEASURE:
             self._handle_measure_click(x, y)
 
-        elif self.mode == Mode.CALIBRATE:
-            self._handle_calibrate_click(x, y)
-
         elif self.mode == Mode.PARTICLE_PRE:
             self._handle_particle_pre_click(x, y)
 
@@ -239,13 +230,6 @@ class PdfMeasureViewer:
         self.mode = Mode.MEASURE
         self._click_points.clear()
         self._clear_temp_artists()
-
-    def _start_calibrate_mode(self):
-        """Enter calibration mode."""
-        self.mode = Mode.CALIBRATE
-        self._click_points.clear()
-        self._clear_temp_artists()
-        print("\n[Calibration] Click two points, then enter the known distance.")
 
     def _start_particle_tracking(self):
         """Enter particle tracking mode."""
@@ -311,61 +295,6 @@ class PdfMeasureViewer:
 
             # Reset for next measurement
             self._click_points.clear()
-
-        self._update_status()
-        self._update_info()
-        self.fig.canvas.draw_idle()
-
-    def _handle_calibrate_click(self, x: float, y: float):
-        """Handle a click in calibration mode."""
-        self._click_points.append((x, y))
-
-        # Draw the point
-        point = self.ax.plot(
-            x, y, "s",
-            color=CALIBRATION_POINT_COLOR,
-            markersize=POINT_MARKER_SIZE,
-            markeredgecolor="black",
-            markeredgewidth=1
-        )[0]
-        self._temp_artists.append(point)
-
-        if len(self._click_points) == 2:
-            p1, p2 = self._click_points
-
-            # Draw line
-            line = self.ax.plot(
-                [p1[0], p2[0]], [p1[1], p2[1]],
-                color=CALIBRATION_LINE_COLOR,
-                linewidth=LINE_WIDTH * 1.5,
-                linestyle="--"
-            )[0]
-            self._temp_artists.append(line)
-            self.fig.canvas.draw_idle()
-
-            # Prompt for known length
-            try:
-                known_length = float(input("Enter known distance in mm: "))
-
-                self.calibration = scale_from_known_length(
-                    p1, p2, known_length, self.current_page
-                )
-
-                # Update all existing measurements
-                self.measurements.update_calibration(self.calibration.mm_per_pixel)
-
-                print(f"[Calibration] Set to {self.calibration.mm_per_pixel:.6f} mm/pixel")
-
-            except ValueError:
-                print("[Calibration] Invalid input, calibration cancelled.")
-
-            # Clear and return to view mode
-            self._clear_temp_artists()
-            self._click_points.clear()
-            self.mode = Mode.VIEW
-
-            # Redraw measurements with updated calibration
-            self._redraw_all()
 
         self._update_status()
         self._update_info()
@@ -543,7 +472,6 @@ class PdfMeasureViewer:
 ║                                                              ║
 ║  MEASUREMENT                                                 ║
 ║    m          Enter measure mode (click 2 points)            ║
-║    c          Enter calibration mode                         ║
 ║    t          Track particle (pre → post position)           ║
 ║    g          Toggle group (pre/post/fiber/edge/other)       ║
 ║    Escape     Cancel current mode                            ║

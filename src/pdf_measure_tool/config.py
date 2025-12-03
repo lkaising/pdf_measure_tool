@@ -18,8 +18,6 @@ DEFAULT_JSON_OUTPUT = "measurements.json"
 # GUI Colors
 MEASUREMENT_LINE_COLOR = "red"
 MEASUREMENT_POINT_COLOR = "yellow"
-CALIBRATION_LINE_COLOR = "blue"
-CALIBRATION_POINT_COLOR = "cyan"
 
 # Marker sizes
 POINT_MARKER_SIZE = 8
@@ -31,7 +29,6 @@ LABEL_FONT_SIZE = 9
 # Keyboard shortcuts
 SHORTCUTS = {
     "measure": "m",
-    "calibrate": "c",
     "save": "s",
     "toggle_group": "g",
     "delete_last": "d",
