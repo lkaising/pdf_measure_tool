@@ -52,8 +52,6 @@ Controls (in GUI):
     )
 
     args = parser.parse_args()
-
-    # Validate PDF path
     pdf_path = Path(args.pdf_path)
     if not pdf_path.exists():
         print(f"Error: File not found: {pdf_path}", file=sys.stderr)
@@ -62,16 +60,9 @@ Controls (in GUI):
     if pdf_path.suffix.lower() != ".pdf":
         print(f"Warning: File may not be a PDF: {pdf_path}", file=sys.stderr)
 
-    # Import and run
-    try:
-        from .pdf_loader import load_document
-        from .gui import PdfMeasureViewer
-    except ImportError:
-        # Handle running directly
-        from pdf_loader import load_document
-        from gui import PdfMeasureViewer
+    from .pdf_loader import load_document
+    from .gui import PdfMeasureViewer
 
-    # Load document and launch viewer
     doc = load_document(str(pdf_path))
     viewer = PdfMeasureViewer(doc, dpi=args.dpi)
     viewer.run()
