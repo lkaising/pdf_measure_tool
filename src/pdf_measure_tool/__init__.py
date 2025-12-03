@@ -12,6 +12,7 @@ from .pdf_loader import PdfDocument, PageImage, load_document
 from .calibration import Calibration, page_scale_from_pdf, scale_from_known_length
 from .measurement import Measurement, MeasurementCollection, ParticleDisplacement, Rectangle
 from .export import export_measurements_csv, export_measurements_json
+from .visualization import plot_rectangle_with_particles, create_visualization_from_json
 from .gui import PdfMeasureViewer, run_viewer
 
 __all__ = [
@@ -27,6 +28,8 @@ __all__ = [
     "Rectangle",
     "export_measurements_csv",
     "export_measurements_json",
+    "plot_rectangle_with_particles",
+    "create_visualization_from_json",
     "PdfMeasureViewer",
     "run_viewer",
 ]

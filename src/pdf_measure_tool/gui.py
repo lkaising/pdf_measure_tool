@@ -13,6 +13,7 @@ from .pdf_loader import PdfDocument, PageImage
 from .calibration import Calibration, page_scale_from_pdf
 from .measurement import MeasurementCollection, Measurement, Rectangle
 from .export import export_measurements_csv, export_measurements_json
+from .visualization import plot_rectangle_with_particles
 from .config import (
     MEASUREMENT_LINE_COLOR, MEASUREMENT_POINT_COLOR,
     POINT_MARKER_SIZE, LINE_WIDTH, LABEL_FONT_SIZE,
@@ -490,6 +491,15 @@ class PdfMeasureViewer:
         json_path = results_dir / f"{base_name}_measurements.json"
         export_measurements_json(self.measurements, str(json_path), self.calibration)
         print(f"Saved: {json_path}")
+
+        # Create visualization if rectangles exist
+        if self.measurements.pre_rectangle is not None or self.measurements.post_rectangle is not None:
+            viz_path = plot_rectangle_with_particles(
+                self.measurements,
+                str(results_dir / f"{base_name}_measurements")
+            )
+            if viz_path:
+                print(f"Saved: {viz_path}")
 
     def _show_help(self):
         """Display help information."""
