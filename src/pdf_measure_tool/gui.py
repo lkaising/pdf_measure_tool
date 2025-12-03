@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .pdf_loader import PdfDocument, PageImage
 from .calibration import Calibration, page_scale_from_pdf
-from .measurement import MeasurementCollection, Measurement
+from .measurement import MeasurementCollection, Measurement, Rectangle
 from .export import export_measurements_csv, export_measurements_json
 from .config import (
     MEASUREMENT_LINE_COLOR, MEASUREMENT_POINT_COLOR,
@@ -58,7 +58,7 @@ class PdfMeasureViewer:
 
         # Plot elements to track for removal
         self._temp_artists = []
-        self._measurement_artists = []
+        self._rectangle_artists = []
 
         # Set up the figure
         self._setup_figure()
@@ -113,10 +113,10 @@ class PdfMeasureViewer:
 
         # Clear temporary artists
         self._temp_artists.clear()
-        self._measurement_artists.clear()
+        self._rectangle_artists.clear()
 
-        # Redraw measurements for this page
-        self._draw_measurements()
+        # Redraw rectangles for this page
+        self._draw_rectangles()
 
         self._update_status()
         self._update_info()
@@ -135,7 +135,7 @@ class PdfMeasureViewer:
         """Update the status text."""
         mode_text = {
             Mode.VIEW: "VIEW MODE - Press 'h' for help",
-            Mode.MEASURE: f"MEASURE MODE - Click 2 points (group: {self.current_group})",
+            Mode.MEASURE: f"MEASURE MODE - Click 2 diagonal corners of {self.current_group.upper()} rectangle",
             Mode.PARTICLE_PRE: "PARTICLE TRACK - Click PRE-test position",
             Mode.PARTICLE_POST: "PARTICLE TRACK - Click POST-test position",
         }
@@ -153,8 +153,16 @@ class PdfMeasureViewer:
         if self.calibration:
             cal_str = f"{self.calibration.mm_per_pixel:.4f} mm/px ({self.calibration.source})"
 
+        # Count rectangles
+        rect_count = 0
+        if self.measurements.pre_rectangle:
+            rect_count += 1
+        if self.measurements.post_rectangle:
+            rect_count += 1
+
         info = (
-            f"Measurements: {len(self.measurements.measurements)} | "
+            f"Rectangles: {rect_count} (Pre: {'✓' if self.measurements.pre_rectangle else '✗'}, "
+            f"Post: {'✓' if self.measurements.post_rectangle else '✗'}) | "
             f"Particles: {len(self.measurements.particles)} | "
             f"Calibration: {cal_str} | "
             f"Group: {self.current_group}"
@@ -176,7 +184,7 @@ class PdfMeasureViewer:
             self._toggle_group()
 
         elif event.key == SHORTCUTS["delete_last"]:
-            self._delete_last()
+            self._delete_current_group()
 
         elif event.key == SHORTCUTS["clear_all"]:
             self._clear_all()
@@ -271,27 +279,34 @@ class PdfMeasureViewer:
         if len(self._click_points) == 2:
             p1, p2 = self._click_points
 
-            # Create measurement
-            label = f"M{self._measurement_label_counter}"
-            measurement = self.measurements.add_measurement(
-                label=label,
+            # Create rectangle
+            rectangle = self.measurements.add_rectangle(
+                group=self.current_group,
                 page_index=self.current_page,
                 point1_px=p1,
                 point2_px=p2,
                 mm_per_pixel=self.calibration.mm_per_pixel if self.calibration else None,
-                group=self.current_group,
             )
-            self._measurement_label_counter += 1
 
-            # Draw permanent line and label
-            self._draw_measurement(measurement)
+            if rectangle is None:
+                # Invalid rectangle
+                print("Error: Invalid rectangle (zero width or height). Please remeasure.")
+                self._clear_temp_artists()
+                self._click_points.clear()
+                self._update_status()
+                self.fig.canvas.draw_idle()
+                return
+
+            # Draw permanent rectangle
+            self._draw_rectangle(rectangle)
 
             # Clear temp artists
             self._clear_temp_artists()
 
             # Report
-            mm_str = f"{measurement.length_mm:.3f} mm" if measurement.length_mm else "N/A mm"
-            print(f"[{label}] {measurement.pixel_distance:.1f} px = {mm_str} (group: {self.current_group})")
+            mm_str = f"{rectangle.width_mm:.3f} mm × {rectangle.height_mm:.3f} mm"
+            px_str = f"{rectangle.width_px:.1f} px × {rectangle.height_px:.1f} px"
+            print(f"[{rectangle.group.capitalize()} Rectangle] Measured: {px_str} = {mm_str}")
 
             # Reset for next measurement
             self._click_points.clear()
@@ -362,52 +377,60 @@ class PdfMeasureViewer:
         self._update_info()
         self.fig.canvas.draw_idle()
 
-    def _draw_measurement(self, m: Measurement):
-        """Draw a measurement on the plot."""
-        if m.page_index != self.current_page:
+    def _draw_rectangle(self, rect: Rectangle):
+        """Draw a rectangle on the plot."""
+        if rect.page_index != self.current_page:
             return
 
-        # Line
+        # Choose color based on group
+        if rect.group == "pre":
+            color = "cyan"
+            label = "Pre"
+        elif rect.group == "post":
+            color = "orange"
+            label = "Post"
+        else:
+            color = "yellow"
+            label = rect.group
+
+        # Draw rectangle outline (4 sides)
+        corners = [
+            rect.bottom_left_px,
+            rect.bottom_right_px,
+            rect.top_right_px,
+            rect.top_left_px,
+            rect.bottom_left_px  # Close the rectangle
+        ]
+
+        xs = [c[0] for c in corners]
+        ys = [c[1] for c in corners]
+
         line = self.ax.plot(
-            [m.point1_px[0], m.point2_px[0]],
-            [m.point1_px[1], m.point2_px[1]],
-            color=MEASUREMENT_LINE_COLOR,
-            linewidth=LINE_WIDTH,
+            xs, ys,
+            color=color,
+            linewidth=1.5,
+            alpha=0.7,
+            linestyle='-'
         )[0]
 
-        # Points
-        points = self.ax.plot(
-            [m.point1_px[0], m.point2_px[0]],
-            [m.point1_px[1], m.point2_px[1]],
+        # Draw corner dots
+        corner_dots = self.ax.plot(
+            xs[:-1], ys[:-1],  # Exclude the duplicate closing point
             "o",
-            color=MEASUREMENT_POINT_COLOR,
+            color=color,
             markersize=POINT_MARKER_SIZE - 2,
             markeredgecolor="black",
             markeredgewidth=0.5,
         )[0]
 
-        # Label
-        mid_x = (m.point1_px[0] + m.point2_px[0]) / 2
-        mid_y = (m.point1_px[1] + m.point2_px[1]) / 2
+        self._rectangle_artists.extend([line, corner_dots])
 
-        label_text = m.label
-        if m.length_mm:
-            label_text += f"\n{m.length_mm:.2f} mm"
-
-        text = self.ax.text(
-            mid_x, mid_y, label_text,
-            fontsize=LABEL_FONT_SIZE,
-            ha="center", va="bottom",
-            color="white",
-            bbox=dict(boxstyle="round,pad=0.2", facecolor="red", alpha=0.7),
-        )
-
-        self._measurement_artists.extend([line, points, text])
-
-    def _draw_measurements(self):
-        """Draw all measurements for the current page."""
-        for m in self.measurements.get_measurements_by_page(self.current_page):
-            self._draw_measurement(m)
+    def _draw_rectangles(self):
+        """Draw all rectangles for the current page."""
+        if self.measurements.pre_rectangle:
+            self._draw_rectangle(self.measurements.pre_rectangle)
+        if self.measurements.post_rectangle:
+            self._draw_rectangle(self.measurements.post_rectangle)
 
     def _clear_temp_artists(self):
         """Remove temporary drawing elements."""
@@ -416,19 +439,17 @@ class PdfMeasureViewer:
         self._temp_artists.clear()
 
     def _redraw_all(self):
-        """Redraw the current page with all measurements."""
+        """Redraw the current page with all rectangles."""
         self._load_page(self.current_page)
 
-    def _delete_last(self):
-        """Delete the last measurement."""
-        deleted = self.measurements.delete_last_measurement()
+    def _delete_current_group(self):
+        """Delete the rectangle for the current group."""
+        deleted = self.measurements.delete_rectangle(self.current_group)
         if deleted:
-            print(f"Deleted measurement: {deleted.label}")
+            print(f"Deleted {deleted.group} rectangle.")
             self._redraw_all()
         else:
-            deleted = self.measurements.delete_last_particle()
-            if deleted:
-                print(f"Deleted particle: {deleted.label}")
+            print(f"No {self.current_group} rectangle to delete.")
 
     def _clear_all(self):
         """Clear all measurements after confirmation."""
@@ -442,7 +463,14 @@ class PdfMeasureViewer:
 
     def _save_measurements(self):
         """Save measurements to file."""
-        if not self.measurements.measurements and not self.measurements.particles:
+        has_data = (
+            self.measurements.pre_rectangle is not None or
+            self.measurements.post_rectangle is not None or
+            len(self.measurements.measurements) > 0 or
+            len(self.measurements.particles) > 0
+        )
+
+        if not has_data:
             print("No measurements to save.")
             return
 
@@ -470,15 +498,17 @@ class PdfMeasureViewer:
 ║    Mouse drag          Pan (when pan tool selected)          ║
 ║    Scroll              Zoom (when zoom tool selected)        ║
 ║                                                              ║
-║  MEASUREMENT                                                 ║
-║    m          Enter measure mode (click 2 points)            ║
-║    t          Track particle (pre → post position)           ║
+║  RECTANGLE MEASUREMENT                                       ║
+║    m          Enter measure mode (click 2 diagonal corners)  ║
 ║    g          Toggle group (pre/post)                        ║
 ║    Escape     Cancel current mode                            ║
 ║                                                              ║
+║  PARTICLE TRACKING                                           ║
+║    t          Track particle (pre → post position)           ║
+║                                                              ║
 ║  DATA MANAGEMENT                                             ║
 ║    s          Save measurements to CSV and JSON              ║
-║    d          Delete last measurement                        ║
+║    d          Delete rectangle for current group             ║
 ║    x          Clear all measurements                         ║
 ║                                                              ║
 ║  OTHER                                                       ║

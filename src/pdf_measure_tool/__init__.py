@@ -10,7 +10,7 @@ __author__ = "PDF Measure Tool"
 
 from .pdf_loader import PdfDocument, PageImage, load_document
 from .calibration import Calibration, page_scale_from_pdf, scale_from_known_length
-from .measurement import Measurement, MeasurementCollection, ParticleDisplacement
+from .measurement import Measurement, MeasurementCollection, ParticleDisplacement, Rectangle
 from .export import export_measurements_csv, export_measurements_json
 from .gui import PdfMeasureViewer, run_viewer
 
@@ -24,6 +24,7 @@ __all__ = [
     "Measurement",
     "MeasurementCollection",
     "ParticleDisplacement",
+    "Rectangle",
     "export_measurements_csv",
     "export_measurements_json",
     "PdfMeasureViewer",

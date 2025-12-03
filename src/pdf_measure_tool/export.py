@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from .measurement import MeasurementCollection, Measurement, ParticleDisplacement
+from .measurement import MeasurementCollection, Measurement, ParticleDisplacement, Rectangle
 from .calibration import Calibration
 from .config import DEFAULT_CSV_OUTPUT, DEFAULT_JSON_OUTPUT
 
@@ -39,9 +39,19 @@ def export_measurements_csv(
             f.write(f"# Calibration: {calibration.mm_per_pixel:.6f} mm/pixel ({calibration.source})\n")
         f.write(f"# Exported: {datetime.now().isoformat()}\n")
 
-        # Write measurements
+        # Write pre rectangle
+        if collection.pre_rectangle:
+            f.write("\n# === PRE RECTANGLE ===\n")
+            _write_rectangle_csv(writer, collection.pre_rectangle)
+
+        # Write post rectangle
+        if collection.post_rectangle:
+            f.write("\n# === POST RECTANGLE ===\n")
+            _write_rectangle_csv(writer, collection.post_rectangle)
+
+        # Write measurements (legacy support)
         if collection.measurements:
-            f.write("# === MEASUREMENTS ===\n")
+            f.write("\n# === MEASUREMENTS ===\n")
             headers = [
                 "id", "label", "group", "page",
                 "x1_px", "y1_px", "x2_px", "y2_px",
@@ -90,6 +100,42 @@ def export_measurements_csv(
     return str(path)
 
 
+def _write_rectangle_csv(writer: csv.writer, rect: Rectangle):
+    """Write a single rectangle to CSV."""
+    # Header
+    headers = [
+        "group", "page",
+        "bottom_left_x_px", "bottom_left_y_px",
+        "bottom_right_x_px", "bottom_right_y_px",
+        "top_left_x_px", "top_left_y_px",
+        "top_right_x_px", "top_right_y_px",
+        "bottom_left_x_mm", "bottom_left_y_mm",
+        "bottom_right_x_mm", "bottom_right_y_mm",
+        "top_left_x_mm", "top_left_y_mm",
+        "top_right_x_mm", "top_right_y_mm",
+        "width_px", "height_px",
+        "width_mm", "height_mm"
+    ]
+    writer.writerow(headers)
+
+    # Data
+    row = [
+        rect.group,
+        rect.page_index,
+        f"{rect.bottom_left_px[0]:.2f}", f"{rect.bottom_left_px[1]:.2f}",
+        f"{rect.bottom_right_px[0]:.2f}", f"{rect.bottom_right_px[1]:.2f}",
+        f"{rect.top_left_px[0]:.2f}", f"{rect.top_left_px[1]:.2f}",
+        f"{rect.top_right_px[0]:.2f}", f"{rect.top_right_px[1]:.2f}",
+        f"{rect.bottom_left_mm[0]:.4f}", f"{rect.bottom_left_mm[1]:.4f}",
+        f"{rect.bottom_right_mm[0]:.4f}", f"{rect.bottom_right_mm[1]:.4f}",
+        f"{rect.top_left_mm[0]:.4f}", f"{rect.top_left_mm[1]:.4f}",
+        f"{rect.top_right_mm[0]:.4f}", f"{rect.top_right_mm[1]:.4f}",
+        f"{rect.width_px:.2f}", f"{rect.height_px:.2f}",
+        f"{rect.width_mm:.4f}", f"{rect.height_mm:.4f}"
+    ]
+    writer.writerow(row)
+
+
 def export_measurements_json(
     collection: MeasurementCollection,
     path: str,
@@ -115,6 +161,10 @@ def export_measurements_json(
                 "mm_per_pixel": calibration.mm_per_pixel if calibration else None,
                 "source": calibration.source if calibration else None,
             }
+        },
+        "rectangles": {
+            "pre": collection.pre_rectangle.to_dict() if collection.pre_rectangle else None,
+            "post": collection.post_rectangle.to_dict() if collection.post_rectangle else None,
         },
         "measurements": [m.to_dict() for m in collection.measurements],
         "particles": [p.to_dict() for p in collection.particles],
@@ -142,6 +192,46 @@ def load_measurements_json(path: str) -> tuple[MeasurementCollection, Optional[C
         data = json.load(f)
 
     collection = MeasurementCollection()
+
+    # Load rectangles
+    rectangles = data.get("rectangles", {})
+    if rectangles.get("pre"):
+        rect_data = rectangles["pre"]
+        collection.pre_rectangle = Rectangle(
+            group=rect_data["group"],
+            page_index=rect_data["page"],
+            bottom_left_px=tuple(rect_data["bottom_left_px"]),
+            bottom_right_px=tuple(rect_data["bottom_right_px"]),
+            top_left_px=tuple(rect_data["top_left_px"]),
+            top_right_px=tuple(rect_data["top_right_px"]),
+            bottom_left_mm=tuple(rect_data["bottom_left_mm"]),
+            bottom_right_mm=tuple(rect_data["bottom_right_mm"]),
+            top_left_mm=tuple(rect_data["top_left_mm"]),
+            top_right_mm=tuple(rect_data["top_right_mm"]),
+            width_px=rect_data["width_px"],
+            height_px=rect_data["height_px"],
+            width_mm=rect_data["width_mm"],
+            height_mm=rect_data["height_mm"],
+        )
+
+    if rectangles.get("post"):
+        rect_data = rectangles["post"]
+        collection.post_rectangle = Rectangle(
+            group=rect_data["group"],
+            page_index=rect_data["page"],
+            bottom_left_px=tuple(rect_data["bottom_left_px"]),
+            bottom_right_px=tuple(rect_data["bottom_right_px"]),
+            top_left_px=tuple(rect_data["top_left_px"]),
+            top_right_px=tuple(rect_data["top_right_px"]),
+            bottom_left_mm=tuple(rect_data["bottom_left_mm"]),
+            bottom_right_mm=tuple(rect_data["bottom_right_mm"]),
+            top_left_mm=tuple(rect_data["top_left_mm"]),
+            top_right_mm=tuple(rect_data["top_right_mm"]),
+            width_px=rect_data["width_px"],
+            height_px=rect_data["height_px"],
+            width_mm=rect_data["width_mm"],
+            height_mm=rect_data["height_mm"],
+        )
 
     # Load measurements
     for m_data in data.get("measurements", []):
