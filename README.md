@@ -46,7 +46,7 @@ python -m pdf_measure_tool path/to/your/file.pdf --dpi 200
 |-----|--------|
 | `m` | Enter **measure mode** (click 2 points to measure distance) |
 | `t` | **Track particle** (click pre position, then post position) |
-| `g` | Toggle measurement **group** (pre/post/fiber/edge/other) |
+| `g` | Toggle measurement **group** (pre/post) |
 | `s` | **Save** measurements to CSV and JSON |
 | `d` | **Delete** last measurement |
 | `x` | Clear **all** measurements (with confirmation) |

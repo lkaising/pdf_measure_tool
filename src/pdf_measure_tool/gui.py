@@ -249,7 +249,7 @@ class PdfMeasureViewer:
 
     def _toggle_group(self):
         """Toggle between measurement groups."""
-        groups = ["pre", "post", "fiber", "edge", "other"]
+        groups = ["pre", "post"]
         current_idx = groups.index(self.current_group) if self.current_group in groups else -1
         self.current_group = groups[(current_idx + 1) % len(groups)]
         print(f"Group set to: {self.current_group}")
@@ -473,13 +473,13 @@ class PdfMeasureViewer:
 ║  MEASUREMENT                                                 ║
 ║    m          Enter measure mode (click 2 points)            ║
 ║    t          Track particle (pre → post position)           ║
-║    g          Toggle group (pre/post/fiber/edge/other)       ║
+║    g          Toggle group (pre/post)                        ║
 ║    Escape     Cancel current mode                            ║
 ║                                                              ║
 ║  DATA MANAGEMENT                                             ║
 ║    s          Save measurements to CSV and JSON              ║
 ║    d          Delete last measurement                        ║
-║    x          Clear all measurements (with confirmation)     ║
+║    x          Clear all measurements                         ║
 ║                                                              ║
 ║  OTHER                                                       ║
 ║    h or ?     Show this help                                 ║
