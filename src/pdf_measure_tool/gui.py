@@ -545,13 +545,13 @@ class PdfMeasureViewer:
 ║    m          Enter measure mode (click 2 points)            ║
 ║    c          Enter calibration mode                         ║
 ║    t          Track particle (pre → post position)           ║
-║    g          Toggle group (pre/post/fiber/edge/other)        ║
+║    g          Toggle group (pre/post/fiber/edge/other)       ║
 ║    Escape     Cancel current mode                            ║
 ║                                                              ║
 ║  DATA MANAGEMENT                                             ║
 ║    s          Save measurements to CSV and JSON              ║
 ║    d          Delete last measurement                        ║
-║    x          Clear all measurements (with confirmation)      ║
+║    x          Clear all measurements (with confirmation)     ║
 ║                                                              ║
 ║  OTHER                                                       ║
 ║    h or ?     Show this help                                 ║
