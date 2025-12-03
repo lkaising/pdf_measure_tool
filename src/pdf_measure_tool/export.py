@@ -20,36 +20,36 @@ def export_measurements_csv(
 ) -> str:
     """
     Export measurements to a CSV file.
-    
+
     Args:
         collection: MeasurementCollection to export.
         path: Output file path.
         calibration: Optional calibration info to include in header.
-        
+
     Returns:
         Path to the created file.
     """
     path = Path(path)
-    
+
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
-        
+
         # Write header comment with metadata
         if calibration:
             f.write(f"# Calibration: {calibration.mm_per_pixel:.6f} mm/pixel ({calibration.source})\n")
         f.write(f"# Exported: {datetime.now().isoformat()}\n")
-        
+
         # Write measurements
         if collection.measurements:
             f.write("# === MEASUREMENTS ===\n")
             headers = [
-                "id", "label", "group", "page", 
+                "id", "label", "group", "page",
                 "x1_px", "y1_px", "x2_px", "y2_px",
-                "dx_px", "dy_px", "pixel_distance", 
+                "dx_px", "dy_px", "pixel_distance",
                 "length_mm", "angle_deg", "notes"
             ]
             writer.writerow(headers)
-            
+
             for m in collection.measurements:
                 writer.writerow([
                     m.id, m.label, m.group, m.page_index,
@@ -61,7 +61,7 @@ def export_measurements_csv(
                     f"{m.angle_degrees:.2f}",
                     m.notes
                 ])
-        
+
         # Write particle displacements
         if collection.particles:
             f.write("\n# === PARTICLE DISPLACEMENTS ===\n")
@@ -73,7 +73,7 @@ def export_measurements_csv(
                 "dx_mm", "dy_mm", "magnitude_mm"
             ]
             writer.writerow(headers)
-            
+
             for p in collection.particles:
                 writer.writerow([
                     p.id, p.label,
@@ -86,7 +86,7 @@ def export_measurements_csv(
                     f"{p.displacement_mm[1]:.4f}" if p.displacement_mm else "N/A",
                     f"{p.displacement_magnitude_mm:.4f}" if p.displacement_magnitude_mm else "N/A",
                 ])
-    
+
     return str(path)
 
 
@@ -97,17 +97,17 @@ def export_measurements_json(
 ) -> str:
     """
     Export measurements to a JSON file.
-    
+
     Args:
         collection: MeasurementCollection to export.
         path: Output file path.
         calibration: Optional calibration info to include.
-        
+
     Returns:
         Path to the created file.
     """
     path = Path(path)
-    
+
     data = {
         "metadata": {
             "exported": datetime.now().isoformat(),
@@ -119,30 +119,30 @@ def export_measurements_json(
         "measurements": [m.to_dict() for m in collection.measurements],
         "particles": [p.to_dict() for p in collection.particles],
     }
-    
+
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
-    
+
     return str(path)
 
 
 def load_measurements_json(path: str) -> tuple[MeasurementCollection, Optional[Calibration]]:
     """
     Load measurements from a JSON file.
-    
+
     Args:
         path: Path to JSON file.
-        
+
     Returns:
         Tuple of (MeasurementCollection, Calibration or None).
     """
     from .calibration import Calibration
-    
+
     with open(path, "r") as f:
         data = json.load(f)
-    
+
     collection = MeasurementCollection()
-    
+
     # Load measurements
     for m_data in data.get("measurements", []):
         measurement = Measurement(
@@ -158,7 +158,7 @@ def load_measurements_json(path: str) -> tuple[MeasurementCollection, Optional[C
         )
         collection.measurements.append(measurement)
         collection._next_measurement_id = max(collection._next_measurement_id, measurement.id + 1)
-    
+
     # Load particles
     for p_data in data.get("particles", []):
         particle = ParticleDisplacement(
@@ -173,7 +173,7 @@ def load_measurements_json(path: str) -> tuple[MeasurementCollection, Optional[C
         )
         collection.particles.append(particle)
         collection._next_particle_id = max(collection._next_particle_id, particle.id + 1)
-    
+
     # Load calibration
     calibration = None
     cal_data = data.get("metadata", {}).get("calibration", {})
@@ -182,5 +182,5 @@ def load_measurements_json(path: str) -> tuple[MeasurementCollection, Optional[C
             mm_per_pixel=cal_data["mm_per_pixel"],
             source=cal_data.get("source", "loaded"),
         )
-    
+
     return collection, calibration

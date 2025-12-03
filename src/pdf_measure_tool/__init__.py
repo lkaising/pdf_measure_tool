@@ -16,7 +16,7 @@ from .gui import PdfMeasureViewer, run_viewer
 
 __all__ = [
     "PdfDocument",
-    "PageImage", 
+    "PageImage",
     "load_document",
     "Calibration",
     "page_scale_from_pdf",

@@ -31,7 +31,7 @@ LABEL_FONT_SIZE = 9
 # Keyboard shortcuts
 SHORTCUTS = {
     "measure": "m",
-    "calibrate": "c", 
+    "calibrate": "c",
     "save": "s",
     "toggle_group": "g",
     "delete_last": "d",

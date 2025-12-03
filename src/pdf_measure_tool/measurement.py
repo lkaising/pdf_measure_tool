@@ -13,10 +13,10 @@ class Point:
     """A 2D point with pixel coordinates."""
     x: float
     y: float
-    
+
     def as_tuple(self) -> tuple[float, float]:
         return (self.x, self.y)
-    
+
     @classmethod
     def from_tuple(cls, t: tuple[float, float]) -> "Point":
         return cls(x=t[0], y=t[1])
@@ -35,22 +35,22 @@ class Measurement:
     group: str = "default"  # e.g., "pre", "post", "fiber", "edge"
     timestamp: datetime = field(default_factory=datetime.now)
     notes: str = ""
-    
+
     @property
     def dx_px(self) -> float:
         """Horizontal displacement in pixels."""
         return self.point2_px[0] - self.point1_px[0]
-    
+
     @property
     def dy_px(self) -> float:
         """Vertical displacement in pixels."""
         return self.point2_px[1] - self.point1_px[1]
-    
+
     @property
     def angle_degrees(self) -> float:
         """Angle of measurement line in degrees (from horizontal)."""
         return np.degrees(np.arctan2(self.dy_px, self.dx_px))
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for export."""
         return {
@@ -83,19 +83,19 @@ class ParticleDisplacement:
     post_page_index: int
     displacement_px: tuple[float, float]
     displacement_mm: Optional[tuple[float, float]]
-    
+
     @property
     def displacement_magnitude_px(self) -> float:
         """Magnitude of displacement in pixels."""
         return np.sqrt(self.displacement_px[0]**2 + self.displacement_px[1]**2)
-    
+
     @property
     def displacement_magnitude_mm(self) -> Optional[float]:
         """Magnitude of displacement in mm."""
         if self.displacement_mm is None:
             return None
         return np.sqrt(self.displacement_mm[0]**2 + self.displacement_mm[1]**2)
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for export."""
         return {
@@ -118,13 +118,13 @@ class ParticleDisplacement:
 
 class MeasurementCollection:
     """Collection of measurements with utility methods."""
-    
+
     def __init__(self):
         self.measurements: List[Measurement] = []
         self.particles: List[ParticleDisplacement] = []
         self._next_measurement_id = 1
         self._next_particle_id = 1
-    
+
     def add_measurement(
         self,
         label: str,
@@ -137,7 +137,7 @@ class MeasurementCollection:
     ) -> Measurement:
         """
         Add a new measurement.
-        
+
         Args:
             label: Label for the measurement.
             page_index: Page where measurement was made.
@@ -146,13 +146,13 @@ class MeasurementCollection:
             mm_per_pixel: Scale factor for conversion (None if uncalibrated).
             group: Group/category for the measurement.
             notes: Optional notes.
-            
+
         Returns:
             The created Measurement object.
         """
         pixel_distance = distance_px(point1_px, point2_px)
         length_mm = pixel_distance * mm_per_pixel if mm_per_pixel else None
-        
+
         measurement = Measurement(
             id=self._next_measurement_id,
             label=label,
@@ -164,12 +164,12 @@ class MeasurementCollection:
             group=group,
             notes=notes,
         )
-        
+
         self.measurements.append(measurement)
         self._next_measurement_id += 1
-        
+
         return measurement
-    
+
     def add_particle(
         self,
         label: str,
@@ -181,7 +181,7 @@ class MeasurementCollection:
     ) -> ParticleDisplacement:
         """
         Add a particle displacement tracking.
-        
+
         Args:
             label: Label for the particle.
             pre_position_px: Position in pre-test image (pixels).
@@ -189,18 +189,18 @@ class MeasurementCollection:
             pre_page_index: Page index of pre-test image.
             post_page_index: Page index of post-test image.
             mm_per_pixel: Scale factor for conversion.
-            
+
         Returns:
             The created ParticleDisplacement object.
         """
         dx = post_position_px[0] - pre_position_px[0]
         dy = post_position_px[1] - pre_position_px[1]
         displacement_px = (dx, dy)
-        
+
         displacement_mm = None
         if mm_per_pixel:
             displacement_mm = (dx * mm_per_pixel, dy * mm_per_pixel)
-        
+
         particle = ParticleDisplacement(
             id=self._next_particle_id,
             label=label,
@@ -211,44 +211,44 @@ class MeasurementCollection:
             displacement_px=displacement_px,
             displacement_mm=displacement_mm,
         )
-        
+
         self.particles.append(particle)
         self._next_particle_id += 1
-        
+
         return particle
-    
+
     def delete_last_measurement(self) -> Optional[Measurement]:
         """Remove and return the last measurement."""
         if self.measurements:
             return self.measurements.pop()
         return None
-    
+
     def delete_last_particle(self) -> Optional[ParticleDisplacement]:
         """Remove and return the last particle."""
         if self.particles:
             return self.particles.pop()
         return None
-    
+
     def clear_all(self):
         """Clear all measurements and particles."""
         self.measurements.clear()
         self.particles.clear()
         self._next_measurement_id = 1
         self._next_particle_id = 1
-    
+
     def get_measurements_by_group(self, group: str) -> List[Measurement]:
         """Get all measurements in a specific group."""
         return [m for m in self.measurements if m.group == group]
-    
+
     def get_measurements_by_page(self, page_index: int) -> List[Measurement]:
         """Get all measurements on a specific page."""
         return [m for m in self.measurements if m.page_index == page_index]
-    
+
     def update_calibration(self, mm_per_pixel: float):
         """Update all measurements with new calibration."""
         for m in self.measurements:
             m.length_mm = m.pixel_distance * mm_per_pixel
-        
+
         for p in self.particles:
             dx = p.displacement_px[0] * mm_per_pixel
             dy = p.displacement_px[1] * mm_per_pixel
